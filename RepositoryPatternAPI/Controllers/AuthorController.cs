@@ -3,6 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using RepositoryPatternAPI.Data.Entities;
 using RepositoryPatternAPI.DTOs;
 using RepositoryPatternAPI.Services.Abstractions;
+using Serilog;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace RepositoryPatternAPI.Controllers
 {
@@ -10,107 +14,178 @@ namespace RepositoryPatternAPI.Controllers
     [Route("[controller]")]
     public class AuthorController : ControllerBase
     {
-        private readonly ILogger<AuthorController> _logger;
         private readonly IAuthorService _authorService;
         private readonly IMapper _mapper;
 
-        public AuthorController(IAuthorService authorService, ILogger<AuthorController> logger, IMapper mapper)
+        public AuthorController(IAuthorService authorService, IMapper mapper)
         {
             _authorService = authorService;
-            _logger = logger;
             _mapper = mapper;
         }
 
         [HttpGet]
         public ActionResult<ResponseModel<IEnumerable<AuthorDTO>>> GetAllAuthors()
         {
-            var authors = _authorService.GetAllAuthors();
-            var authorDTOs = authors.Select(x=>_mapper.Map<AuthorDTO>(x)).ToList();
-                //_mapper.Map<IEnumerable<AuthorDTO>>(authors);
-
-            return new ResponseModel<IEnumerable<AuthorDTO>>
+            Log.Information("Entering GetAllAuthors method.");
+            try
             {
-                Message = "Authors retrieved successfully",
-                Data = authorDTOs
-            };
+                var authors = _authorService.GetAllAuthors();
+                var authorDTOs = authors.Select(x => _mapper.Map<AuthorDTO>(x)).ToList();
+
+                Log.Information("Exiting GetAllAuthors method with success.");
+                return new ResponseModel<IEnumerable<AuthorDTO>>
+                {
+                    Message = "Authors retrieved successfully",
+                    Data = authorDTOs
+                };
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error occurred in GetAllAuthors method.");
+                return new ResponseModel<IEnumerable<AuthorDTO>>
+                {
+                    Message = "Error retrieving authors",
+                    Data = null
+                };
+            }
         }
 
         [HttpPost]
         public ActionResult<ResponseModel<AuthorDTO>> CreateAuthor(AuthorDTO authorDTO)
         {
-            var author = _mapper.Map<Author>(authorDTO);
-            _authorService.AddAuthor(author);
-
-            return new ResponseModel<AuthorDTO>
+            Log.Information("Entering CreateAuthor method with parameters: {AuthorDTO}", authorDTO);
+            try
             {
-                Message = "Author created successfully",
-                Data = _mapper.Map<AuthorDTO>(author)
-            };
+                var author = _mapper.Map<Author>(authorDTO);
+                _authorService.AddAuthor(author);
+
+                var createdAuthorDTO = _mapper.Map<AuthorDTO>(author);
+                Log.Information("Exiting CreateAuthor method with success.");
+                return new ResponseModel<AuthorDTO>
+                {
+                    Message = "Author created successfully",
+                    Data = createdAuthorDTO
+                };
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error occurred in CreateAuthor method.");
+                return new ResponseModel<AuthorDTO>
+                {
+                    Message = "Author not created successfully",
+                    Data = null
+                };
+            }
         }
 
         [HttpGet("{id}")]
         public ActionResult<ResponseModel<AuthorDTO>> GetAuthor(int id)
         {
-            var author = _authorService.GetAuthorById(id);
-            if (author == null)
+            Log.Information("Entering GetAuthor method with parameter: {Id}", id);
+            try
             {
-                return NotFound(new ResponseModel<AuthorDTO>
+                var author = _authorService.GetAuthorById(id);
+                if (author == null)
                 {
-                    Message = "Author not found",
-                    Data = null
-                });
-            }
+                    Log.Warning("Author with id {Id} not found.", id);
+                    return NotFound(new ResponseModel<AuthorDTO>
+                    {
+                        Message = "Author not found",
+                        Data = null
+                    });
+                }
 
-            return new ResponseModel<AuthorDTO>
+                var authorDTO = _mapper.Map<AuthorDTO>(author);
+                Log.Information("Exiting GetAuthor method with success.");
+                return new ResponseModel<AuthorDTO>
+                {
+                    Message = "Author retrieved successfully",
+                    Data = authorDTO
+                };
+            }
+            catch (Exception ex)
             {
-                Message = "Author retrieved successfully",
-                Data = _mapper.Map<AuthorDTO>(author)
-            };
+                Log.Error(ex, "Error occurred in GetAuthor method.");
+                return new ResponseModel<AuthorDTO>
+                {
+                    Message = "Error retrieving author",
+                    Data = null
+                };
+            }
         }
 
         [HttpDelete("{id}")]
         public ActionResult<ResponseModel<AuthorDTO>> DeleteAuthor(int id)
         {
-            var author = _authorService.GetAuthorById(id);
-            if (author == null)
+            Log.Information("Entering DeleteAuthor method with parameter: {Id}", id);
+            try
             {
-                return NotFound(new ResponseModel<AuthorDTO>
+                var author = _authorService.GetAuthorById(id);
+                if (author == null)
                 {
-                    Message = "Author not found",
-                    Data = null
-                });
+                    Log.Warning("Author with id {Id} not found.", id);
+                    return NotFound(new ResponseModel<AuthorDTO>
+                    {
+                        Message = "Author not found",
+                        Data = null
+                    });
+                }
+
+                _authorService.DeleteAuthor(id);
+                Log.Information("Exiting DeleteAuthor method with success.");
+                return new ResponseModel<AuthorDTO>
+                {
+                    Message = "Author deleted successfully",
+                    Data = _mapper.Map<AuthorDTO>(author)
+                };
             }
-
-            _authorService.DeleteAuthor(id);
-
-            return new ResponseModel<AuthorDTO>
+            catch (Exception ex)
             {
-                Message = "Author deleted successfully",
-                Data = _mapper.Map<AuthorDTO>(author)
-            };
+                Log.Error(ex, "Error occurred in DeleteAuthor method.");
+                return new ResponseModel<AuthorDTO>
+                {
+                    Message = "Error deleting author",
+                    Data = null
+                };
+            }
         }
 
         [HttpPut("{id}")]
         public ActionResult<ResponseModel<AuthorDTO>> UpdateAuthor(AuthorDTO authorDTO, int id)
         {
-            var existingAuthor = _authorService.GetAuthorById(id);
-            if (existingAuthor == null)
+            Log.Information("Entering UpdateAuthor method with parameters: {AuthorDTO}, {Id}", authorDTO, id);
+            try
             {
-                return NotFound(new ResponseModel<AuthorDTO>
+                var existingAuthor = _authorService.GetAuthorById(id);
+                if (existingAuthor == null)
                 {
-                    Message = "Author not found",
-                    Data = null
-                });
+                    Log.Warning("Author with id {Id} not found.", id);
+                    return NotFound(new ResponseModel<AuthorDTO>
+                    {
+                        Message = "Author not found",
+                        Data = null
+                    });
+                }
+
+                var updatedAuthor = _mapper.Map(authorDTO, existingAuthor);
+                _authorService.UpdateAuthor(updatedAuthor);
+                
+                Log.Information("Exiting UpdateAuthor method with success.");
+                return new ResponseModel<AuthorDTO>
+                {
+                    Message = "Author updated successfully",
+                    Data = _mapper.Map<AuthorDTO>(updatedAuthor)
+                };
             }
-
-            var updatedAuthor = _mapper.Map(authorDTO, existingAuthor);
-            _authorService.UpdateAuthor(updatedAuthor);
-
-            return new ResponseModel<AuthorDTO>
+            catch (Exception ex)
             {
-                Message = "Author updated successfully",
-                Data = _mapper.Map<AuthorDTO>(updatedAuthor)
-            };
+                Log.Error(ex, "Error occurred in UpdateAuthor method.");
+                return new ResponseModel<AuthorDTO>
+                {
+                    Message = "Error updating author",
+                    Data = null
+                };
+            }
         }
     }
 }
